@@ -1,11 +1,15 @@
 /*
  * Bootstrap do Dashboard dentro do Trello (Power-Up iframe).
  * Nenhuma regra de negocio aqui - so: falar com TrelloPowerUp.iframe(),
- * buscar os dados via FGRApi, calcular via FGRCalc e desenhar via FGRUi.
+ * buscar os dados via FGRApi, calcular via FGRCalc e desenhar via FGRUi/FGRChartManager.
  */
 var KEY = 'ebdf1a3d948d7b795b6ffa7ae1dd4292';
 var t = TrelloPowerUp.iframe({ appKey: KEY, appName: 'FGR Dashboard' });
 var app = document.getElementById('app');
+
+var POLL_INTERVAL_MS = 30000;
+var shellRendered = false;
+var pollTimer = null;
 
 function storageGet(key) { return t.get('board', 'shared', key); }
 function storageSet(key, value) { return t.set('board', 'shared', key, value); }
@@ -30,47 +34,64 @@ function openExpanded() {
   });
 }
 
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(function () { refresh(true); }, POLL_INTERVAL_MS);
+}
+
+// full=true na primeira carga (monta o shell); refresh depois so atualiza os graficos.
+function refresh(isPoll) {
+  var token, boardId, boardName;
+  return t.getRestApi().getToken()
+    .then(function (tok) {
+      token = tok;
+      return t.board('id', 'name');
+    })
+    .then(function (board) {
+      boardId = board.id;
+      boardName = board.name;
+      return Promise.all([
+        FGRApi.fetchBoardData(boardId, token, KEY),
+        storageGet('fgrConfig'),
+        storageGet('fgrProgressHistory')
+      ]);
+    })
+    .then(function (results) {
+      var data = results[0];
+      var cfg = results[1] || null;
+
+      var listName = {}; data.lists.forEach(function (l) { listName[l.id] = l.name; });
+      var labelName = {}; data.labels.forEach(function (l) { labelName[l.id] = l.name; });
+      var memberName = {}; data.members.forEach(function (m) { memberName[m.id] = m.fullName || m.username; });
+
+      var items = FGRCalc.buildItems(data.cards, listName, labelName, memberName);
+      var model = FGRCalc.computeModel(items, cfg);
+
+      return FGRCalc.saveHistorySnapshot(model.pct, storageGet, storageSet).then(function (hist) {
+        if (!shellRendered) {
+          FGRUi.renderShell(app, {
+            cfg: cfg,
+            onSaveConfig: function (cfgOut) { stopPolling(); storageSet('fgrConfig', cfgOut).then(boot); },
+            onExpand: openExpanded
+          });
+          shellRendered = true;
+        }
+        var burndown = FGRCalc.computeBurndown(hist, cfg);
+        FGRUi.updateCharts(model, hist, burndown, boardName);
+        if (!isPoll) startPolling();
+      });
+    });
+}
+
 function boot() {
+  shellRendered = false;
+  stopPolling();
   app.innerHTML = '<div class="state-box"><div class="spinner"></div><div>Carregando dados do board…</div></div>';
 
   t.getRestApi().isAuthorized().then(function (isAuth) {
     if (!isAuth) { FGRUi.renderAuthGate(app, null, connect); return; }
-
-    var token, boardId, boardName;
-    t.getRestApi().getToken()
-      .then(function (tok) {
-        token = tok;
-        return t.board('id', 'name');
-      })
-      .then(function (board) {
-        boardId = board.id;
-        boardName = board.name;
-        return Promise.all([
-          FGRApi.fetchBoardData(boardId, token, KEY),
-          storageGet('fgrConfig'),
-          storageGet('fgrProgressHistory')
-        ]);
-      })
-      .then(function (results) {
-        var data = results[0];
-        var cfg = results[1] || null;
-
-        var listName = {}; data.lists.forEach(function (l) { listName[l.id] = l.name; });
-        var labelName = {}; data.labels.forEach(function (l) { labelName[l.id] = l.name; });
-        var memberName = {}; data.members.forEach(function (m) { memberName[m.id] = m.fullName || m.username; });
-
-        var items = FGRCalc.buildItems(data.cards, listName, labelName, memberName);
-        var model = FGRCalc.computeModel(items, cfg);
-
-        FGRCalc.saveHistorySnapshot(model.pct, storageGet, storageSet).then(function (hist) {
-          FGRUi.renderDashboard(app, model, hist, {
-            boardName: boardName,
-            onSaveConfig: function (cfgOut) { storageSet('fgrConfig', cfgOut).then(boot); },
-            onExpand: openExpanded
-          });
-        });
-      })
-      .catch(function (err) { FGRUi.renderError(app, err, boot); });
+    refresh(false).catch(function (err) { FGRUi.renderError(app, err, boot); });
   });
 }
 
