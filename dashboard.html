@@ -154,25 +154,26 @@ function trelloGet(path, token){
     .then(function(r){ if(!r.ok) throw new Error('Trello API ' + r.status); return r.json(); });
 }
 
-function ensureAuthorized(){
-  return t.getRestApi().isAuthorized().then(function(isAuth){
-    if (isAuth) return t.getRestApi().getToken();
-    return t.getRestApi().authorize({ scope: 'read', expiration: '30days' })
-      .then(function(){ return t.getRestApi().getToken(); });
-  });
-}
-
-function renderAuthGate(){
+function renderAuthGate(message){
   app.innerHTML =
     '<div class="state-box">' +
       '<div style="font-size:32px;">📊</div>' +
       '<div><b>Conecte o Dashboard FGR ao seu board</b></div>' +
       '<div style="color:var(--text-mute);max-width:340px;text-align:center;">' +
-        'Precisamos da sua autorização de leitura para calcular o progresso ponderado a partir dos cartões deste board.' +
+        (message || 'Precisamos da sua autorização de leitura para calcular o progresso ponderado a partir dos cartões deste board.') +
       '</div>' +
       '<button class="btn" id="connectBtn">Conectar ao Trello</button>' +
     '</div>';
-  document.getElementById('connectBtn').onclick = function(){ boot(); };
+  document.getElementById('connectBtn').onclick = function(){
+    var btn = document.getElementById('connectBtn');
+    btn.disabled = true;
+    btn.textContent = 'Abrindo autorização…';
+    t.getRestApi().authorize({ scope: 'read', expiration: '30days' })
+      .then(function(){ boot(); })
+      .catch(function(err){
+        renderAuthGate('Autorização não concluída (' + (err && err.message ? err.message : 'popup fechado') + '). Tente novamente.');
+      });
+  };
 }
 
 function renderError(err){
@@ -448,7 +449,7 @@ function boot(){
     if (!isAuth) { renderAuthGate(); return; }
 
     var token, boardId, boardName;
-    ensureAuthorized()
+    t.getRestApi().getToken()
       .then(function(tok){
         token = tok;
         return t.board('id', 'name');
