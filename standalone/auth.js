@@ -17,7 +17,7 @@ var FGRAuth = (function () {
 
   // Le "#token=..." da URL de retorno (se o usuario acabou de autorizar), salva e limpa a URL.
   function captureTokenFromRedirect() {
-    var m = location.hash.match(/token=([0-9a-fA-F]+)/);
+    var m = location.hash.match(/token=([^&]+)/);
     if (m) {
       localStorage.setItem(STORAGE_KEY, m[1]);
       history.replaceState(null, '', location.pathname + location.search);
