@@ -67,6 +67,8 @@ button.btn.ghost{ background:transparent; border:1px solid var(--border); color:
 /* --- Cards de grafico ECharts --- */
 .chart-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
 .chart-card-head h2{ margin:0; }
+.chart-title{ cursor:pointer; }
+.chart-title:hover{ color:var(--accent); }
 .chart-canvas{ width:100%; height:280px; }
 .icon-btn{
   background:transparent; border:1px solid var(--border); color:var(--text-soft);

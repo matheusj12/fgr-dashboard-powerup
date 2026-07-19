@@ -39,7 +39,7 @@ var FGRUi = (function () {
     return (
       '<div class="card chart-card' + (colSpan === 2 ? ' span-2' : '') + '" id="cardwrap-' + id + '">' +
       '<div class="chart-card-head">' +
-      '<h2>' + title + (hint ? ' <span class="hint">' + hint + '</span>' : '') + '</h2>' +
+      '<h2 class="chart-title" data-chart-title="' + FGRUtils.esc(title) + '" title="Clique para o Agente explicar este gráfico">' + title + (hint ? ' <span class="hint">' + hint + '</span>' : '') + '</h2>' +
       '<button class="icon-btn" data-fullscreen="' + id + '" title="Tela cheia">⛶</button>' +
       '</div>' +
       '<div class="chart-canvas" id="chart-' + id + '"></div>' +
@@ -155,6 +155,12 @@ var FGRUi = (function () {
       btn.onclick = function () {
         var id = btn.getAttribute('data-fullscreen');
         FGRChartManager.toggleFullscreen(id, document.getElementById('cardwrap-' + id));
+      };
+    });
+
+    app.querySelectorAll('.chart-title').forEach(function (h) {
+      h.onclick = function () {
+        document.dispatchEvent(new CustomEvent('fgr:chart-click', { detail: { title: h.getAttribute('data-chart-title') } }));
       };
     });
   }

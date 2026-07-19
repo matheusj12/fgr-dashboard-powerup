@@ -14,6 +14,9 @@ var boardNameFromUrl = params.get('boardName') || '';
 var POLL_INTERVAL_MS = 30000;
 var shellRendered = false;
 var pollTimer = null;
+var agentInitialized = false;
+var previousItems = null;
+var latestSnapshot = { model: null, boardName: '', history: [], burndown: { dates: [], real: [], planned: null } };
 
 function storageGet(key) {
   var raw = localStorage.getItem('fgr:' + key + ':' + boardId);
@@ -71,6 +74,17 @@ function refresh(isPoll) {
         }
         var burndown = FGRCalc.computeBurndown(hist, cfg);
         FGRUi.updateCharts(model, hist, burndown, boardName);
+        latestSnapshot = { model: model, boardName: boardName, history: hist, burndown: burndown };
+
+        if (!agentInitialized) {
+          agentInitialized = true;
+          FGRAgentPanel.init(function () { return latestSnapshot; });
+        } else if (previousItems) {
+          var diffs = FGREventWatcher.diff(previousItems, items);
+          if (diffs.length) FGRAgentPanel.notifyChanges(diffs);
+        }
+        previousItems = items;
+
         if (!isPoll) startPolling();
       });
     });
