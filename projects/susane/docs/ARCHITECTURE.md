@@ -3,7 +3,7 @@
 ## Estrutura
 
 ```
-fgr-dashboard-powerup/
+fgr-dashboard-powerup/projects/susane/
 ├── shared/            # Toda a regra de negocio e renderizacao. Zero dependencia de Trello/OAuth.
 │   ├── utils.js       # esc, fmtPct, fmtNum, parseYamlBlock
 │   ├── api.js         # unica funcao que fala com api.trello.com (recebe key+token prontos)
