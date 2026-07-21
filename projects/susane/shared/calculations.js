@@ -3,27 +3,59 @@
  * Nao conhece Trello Power-Up, nao conhece OAuth, nao conhece HTML. So dados -> dados.
  */
 var FGRCalc = (function () {
-  var CANON_ORDER = ['Topografia', 'Ambiental', 'Area Institucional', 'Urbanismo', 'AVTO', 'Sondagens', 'Infraestrutura', 'Comercial', 'Administracao/Cliente'];
+  // Pipeline real do board "Jardins Constantino - mj": o card nasce em Backlog Geral
+  // e avanca de lista em lista ate CONCLUSAO. Esse board nao usa bloco YAML de
+  // peso/disciplina na descricao - a disciplina vem do prefixo do nome do card
+  // ("Topografia - X", "Ambiental - X") e o progresso granular vem do checklist
+  // nativo do Trello (X/Y), nao de um campo manual.
+  var CANON_ORDER = ['Topografia', 'Ambiental', 'Urbanismo', 'Infraestrutura', 'Comercial', 'IPHAN', 'AVTO', 'SONDAGEM'];
+  var STAGE_ORDER = ['Backlog Geral', 'TEC', 'PROJETISTA', 'NN', 'CONCLUSÃO'];
+  var STATUS_BLOQUEADO = 'Pause / Estratégia';
+  var STATUS_AGUARDANDO = 'Devendo';
+  var STATUS_ATRASO = 'Atenção / Atraso';
+
+  function isDone(listName) { return (listName || '').trim().toUpperCase() === 'CONCLUSÃO'; }
+
+  // "Projeto Infraestrutura" / "Projetos Infraestrutura" (grafia inconsistente no board)
+  // caem no mesmo balde "Infraestrutura", igual ao vocabulario usado no board da Matheus.
+  function disciplinaFromName(name) {
+    var idx = name.indexOf(' - ');
+    var prefix = (idx > -1 ? name.slice(0, idx) : name).trim();
+    if (/^projetos?\s+infraestrutura$/i.test(prefix)) return 'Infraestrutura';
+    return prefix || 'Sem disciplina';
+  }
 
   function buildItems(cards, listName, labelName, memberName) {
-    return cards.map(function (c) {
-      var y = FGRUtils.parseYamlBlock(c.desc);
-      var disciplina = (y.disciplina && y.disciplina.trim()) ||
-        (c.idLabels && c.idLabels[0] ? labelName[c.idLabels[0]] : 'Sem disciplina');
-      var pesoRaw = (y.peso || '').replace(',', '.').trim();
-      var peso = parseFloat(pesoRaw) || 0;
-      return {
-        id: c.id,
-        name: c.name,
-        list: listName[c.idList] || '—',
-        disciplina: disciplina,
-        peso: peso,
-        prioridade: (y.prioridade || '').trim(),
-        due: c.due,
-        members: (c.idMembers || []).map(function (id) { return memberName[id]; }).filter(Boolean),
-        dataPrevista: (y.data_prevista || '').trim()
-      };
-    });
+    return cards
+      .filter(function (c) { return c.name !== 'Start using Trello'; }) // cartao padrao do Trello, nao e entrega real
+      .map(function (c) {
+        var y = FGRUtils.parseYamlBlock(c.desc);
+        var disciplina = (y.disciplina && y.disciplina.trim()) || disciplinaFromName(c.name);
+        var pesoRaw = (y.peso || '').replace(',', '.').trim();
+        var peso = parseFloat(pesoRaw) || 1; // sem peso manual no board -> cada entrega conta igual
+        var badges = c.badges || {};
+        return {
+          id: c.id,
+          name: c.name,
+          list: listName[c.idList] || '—',
+          disciplina: disciplina,
+          peso: peso,
+          prioridade: (y.prioridade || '').trim(),
+          due: c.due,
+          members: (c.idMembers || []).map(function (id) { return memberName[id]; }).filter(Boolean),
+          dataPrevista: (y.data_prevista || '').trim(),
+          labels: (c.idLabels || []).map(function (id) { return labelName[id]; }).filter(Boolean),
+          checklist: { done: badges.checkItemsChecked || 0, total: badges.checkItems || 0 }
+        };
+      });
+  }
+
+  // Fracao de conclusao de uma entrega: 100% se ja chegou em CONCLUSAO na lista,
+  // senao o quanto do checklist do card ja foi marcado (0 se nao tem checklist ainda).
+  function doneFraction(item) {
+    if (isDone(item.list)) return 1;
+    if (item.checklist && item.checklist.total) return item.checklist.done / item.checklist.total;
+    return 0;
   }
 
   // Saude do projeto: compara progresso ponderado real vs. progresso esperado pelo cronograma.
@@ -56,8 +88,8 @@ var FGRCalc = (function () {
   // que sabe calcular peso executado, gargalos, criticidade, produtividade por responsavel etc.
   function computeModel(items, cfg) {
     var totalPeso = items.reduce(function (s, i) { return s + i.peso; }, 0) || 1;
-    var doneItems = items.filter(function (i) { return i.list === 'Concluido' || i.list === 'Concluído'; });
-    var pesoDone = doneItems.reduce(function (s, i) { return s + i.peso; }, 0);
+    var doneItems = items.filter(function (i) { return isDone(i.list); });
+    var pesoDone = items.reduce(function (s, i) { return s + i.peso * doneFraction(i); }, 0);
     var pct = pesoDone / totalPeso * 100;
 
     var byList = {};
@@ -67,15 +99,16 @@ var FGRCalc = (function () {
     items.forEach(function (i) {
       if (!byDisc[i.disciplina]) byDisc[i.disciplina] = { total: 0, done: 0 };
       byDisc[i.disciplina].total += i.peso;
-      if (i.list === 'Concluido') byDisc[i.disciplina].done += i.peso;
+      byDisc[i.disciplina].done += i.peso * doneFraction(i);
     });
     var discRows = Object.keys(byDisc).map(function (k) {
       var d = byDisc[k];
       return { name: k, pct: d.total ? d.done / d.total * 100 : 0, peso: d.total };
     }).sort(function (a, b) { return b.pct - a.pct; });
 
-    var blocked = items.filter(function (i) { return i.list === 'Bloqueado'; });
-    var waitingExternal = items.filter(function (i) { return i.list === 'Em aprovacao externa'; });
+    var blocked = items.filter(function (i) { return i.labels.indexOf(STATUS_BLOQUEADO) > -1; });
+    var waitingExternal = items.filter(function (i) { return i.labels.indexOf(STATUS_AGUARDANDO) > -1; });
+    var atRisk = items.filter(function (i) { return i.labels.indexOf(STATUS_ATRASO) > -1; });
 
     var bottlenecksByDisc = {};
     blocked.concat(waitingExternal).forEach(function (i) {
@@ -91,9 +124,9 @@ var FGRCalc = (function () {
     var restantes = diasRestantes(cfg);
 
     var withDue = items.filter(function (i) { return !!i.due; }).sort(function (a, b) { return new Date(a.due) - new Date(b.due); });
-    var upcoming = withDue.filter(function (i) { return i.list !== 'Concluido'; }).slice(0, 10);
+    var upcoming = withDue.filter(function (i) { return !isDone(i.list); }).slice(0, 10);
     var now = new Date();
-    var overdue = withDue.filter(function (i) { return i.list !== 'Concluido' && new Date(i.due) < now; });
+    var overdue = withDue.filter(function (i) { return !isDone(i.list) && new Date(i.due) < now; });
     var highPriority = items.filter(function (i) { return /alta/i.test(i.prioridade); });
     var critical = { highPriority: highPriority.length, overdue: overdue.length, blocked: blocked.length };
 
@@ -110,7 +143,7 @@ var FGRCalc = (function () {
     // --- dados para os graficos ECharts (tudo derivado de items reais, nada mockado) ---
 
     function approvalTypeOf(item) {
-      if (/Concessionaria/i.test(item.name)) return 'Concessionária';
+      if (/Concessionaria|Concessionária/i.test(item.name)) return 'Concessionária';
       if (/Prefeitura/i.test(item.name)) return 'Prefeitura';
       if (item.disciplina === 'Administracao/Cliente') return 'Cliente';
       return 'Ambiental';
@@ -124,11 +157,13 @@ var FGRCalc = (function () {
       return { name: k, value: approvalsByTypeMap[k] || 0 };
     });
 
-    var noResponsible = items.filter(function (i) { return i.members.length === 0 && i.list !== 'Concluido'; });
+    var noResponsible = items.filter(function (i) { return i.members.length === 0 && !isDone(i.list); });
     var criticalBreakdown = [
       { name: 'Prioridade Alta', value: highPriority.length },
       { name: 'Vencidas', value: overdue.length },
       { name: 'Bloqueadas', value: blocked.length },
+      { name: 'Aguardando terceiros', value: waitingExternal.length },
+      { name: 'Atenção/Atraso', value: atRisk.length },
       { name: 'Sem responsável', value: noResponsible.length }
     ];
 
@@ -167,17 +202,13 @@ var FGRCalc = (function () {
       }
     }
 
-    var funnelRows = [
-      { name: 'Backlog', value: byList['Backlog'] || 0 },
-      { name: 'Em andamento', value: byList['Em andamento'] || 0 },
-      { name: 'Em aprovação externa', value: byList['Em aprovacao externa'] || 0 },
-      { name: 'Concluído', value: byList['Concluido'] || 0 },
-      { name: 'Entrega Final', value: 0 }
-    ];
+    var funnelRows = STAGE_ORDER.map(function (stage) {
+      return { name: stage === 'CONCLUSÃO' ? 'Conclusão' : stage, value: byList[stage] || 0 };
+    });
 
     var pesoBlocked = blocked.reduce(function (s, i) { return s + i.peso; }, 0);
     var pesoWaiting = waitingExternal.reduce(function (s, i) { return s + i.peso; }, 0);
-    var startedItems = items.filter(function (i) { return i.list !== 'Backlog'; });
+    var startedItems = items.filter(function (i) { return i.list !== 'Backlog Geral'; });
     var withResponsible = items.filter(function (i) { return i.members.length > 0; });
     var radar = {
       prazo: health.gap == null ? 50 : Math.max(0, Math.min(100, 100 - Math.max(0, health.gap) * 3)),
@@ -190,7 +221,7 @@ var FGRCalc = (function () {
 
     return {
       items: items, totalPeso: totalPeso, pct: pct, byList: byList, discRows: discRows,
-      blocked: blocked, waitingExternal: waitingExternal, bottlenecks: bottlenecks,
+      blocked: blocked, waitingExternal: waitingExternal, atRisk: atRisk, bottlenecks: bottlenecks,
       health: health, restantes: restantes, upcoming: upcoming, critical: critical,
       memberRows: memberRows, maxMember: maxMember, timelineByDisc: timelineByDisc, cfg: cfg,
       approvalsByType: approvalsByType, criticalBreakdown: criticalBreakdown,
@@ -236,6 +267,8 @@ var FGRCalc = (function () {
 
   return {
     CANON_ORDER: CANON_ORDER,
+    STAGE_ORDER: STAGE_ORDER,
+    isDone: isDone,
     buildItems: buildItems,
     healthOf: healthOf,
     diasRestantes: diasRestantes,

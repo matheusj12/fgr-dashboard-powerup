@@ -3,8 +3,8 @@
  * Mesma regra de negocio e mesmos graficos do Power-Up (FGRCalc/FGRUi/FGRChartManager) -
  * so muda como os dados chegam: aqui via OAuth (FGRAuth) + REST direta (FGRApi).
  */
-var KEY = 'COLOQUE_A_TRELLO_API_KEY_DA_SUSANE_AQUI';
-var APP_NAME = 'FGR Dashboard';
+var KEY = 'faf7976de1f3f5c94a3cdd396db99702';
+var APP_NAME = 'FGR Dashboard - Susane';
 var app = document.getElementById('app');
 
 var params = new URLSearchParams(location.search);

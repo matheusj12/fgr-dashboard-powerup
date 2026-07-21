@@ -9,7 +9,7 @@ var FGRContextBuilder = (function () {
 
   function build(model, boardName, history, burndown) {
     var criticalItems = model.items
-      .filter(function (i) { return i.list !== 'Concluido'; })
+      .filter(function (i) { return !FGRCalc.isDone(i.list); })
       .slice()
       .sort(function (a, b) { return b.peso - a.peso; })
       .slice(0, 8)
@@ -25,6 +25,9 @@ var FGRContextBuilder = (function () {
       saude: { nivel: model.health.level, label: model.health.label, gap_cronograma_pp: model.health.gap != null ? round1(model.health.gap) : null },
       dias_restantes: model.restantes,
       distribuicao_status: model.byList,
+      bloqueados: model.blocked.length,
+      aguardando_terceiros: model.waitingExternal.length,
+      atencao_atraso: model.atRisk.length,
       progresso_por_disciplina: model.discRows.map(function (r) { return { disciplina: r.name, pct: round1(r.pct), peso: round1(r.peso) }; }),
       gargalos: model.bottlenecks.map(function (b) { return { disciplina: b.name, entregas_paradas: b.count, peso_parado: round1(b.peso) }; }),
       aprovacoes_pendentes_por_tipo: model.approvalsByType,

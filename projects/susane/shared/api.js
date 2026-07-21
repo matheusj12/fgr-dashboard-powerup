@@ -16,7 +16,7 @@ var FGRApi = (function () {
   // Busca board + cards + lists + labels + members em paralelo - usado pelos dois apps.
   function fetchBoardData(boardId, token, key) {
     return Promise.all([
-      get('/boards/' + boardId + '/cards?fields=name,idList,idLabels,idMembers,due,desc', token, key),
+      get('/boards/' + boardId + '/cards?fields=name,idList,idLabels,idMembers,due,desc,badges', token, key),
       get('/boards/' + boardId + '/lists?fields=name', token, key),
       get('/boards/' + boardId + '/labels?fields=name', token, key),
       get('/boards/' + boardId + '/members?fields=fullName,username', token, key)

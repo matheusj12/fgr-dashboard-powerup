@@ -29,16 +29,8 @@
           });
         }
       }];
-    },
-
-    'card-badges': function (t, options) {
-      return t.card('desc').then(function (card) {
-        var m = (card.desc || '').match(/peso:\s*([\d.,]+)/i);
-        if (!m) return [];
-        return [{ text: 'Peso ' + m[1].trim(), color: 'purple' }];
-      });
     }
-  }, { appKey: 'COLOQUE_A_TRELLO_API_KEY_DA_SUSANE_AQUI', appName: 'FGR Dashboard - Susane' });
+  }, { appKey: 'faf7976de1f3f5c94a3cdd396db99702', appName: 'FGR Dashboard - Susane' });
 </script>
 </body>
 </html>

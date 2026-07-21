@@ -3,7 +3,7 @@
  * Nenhuma regra de negocio aqui - so: falar com TrelloPowerUp.iframe(),
  * buscar os dados via FGRApi, calcular via FGRCalc e desenhar via FGRUi/FGRChartManager.
  */
-var KEY = 'COLOQUE_A_TRELLO_API_KEY_DA_SUSANE_AQUI';
+var KEY = 'faf7976de1f3f5c94a3cdd396db99702';
 var t = TrelloPowerUp.iframe({ appKey: KEY, appName: 'FGR Dashboard - Susane' });
 var app = document.getElementById('app');
 

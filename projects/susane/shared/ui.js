@@ -96,7 +96,7 @@ var FGRUi = (function () {
 
       '<div class="grid cols-2" style="margin-bottom:14px;">' +
       chartCard('weight-bar', 'Peso das Disciplinas', null) +
-      chartCard('heatmap', 'Mapa de Gargalos', 'bloqueados + aprovação externa') +
+      chartCard('heatmap', 'Mapa de Gargalos', 'bloqueados + aguardando terceiros') +
       '</div>' +
 
       '<div class="grid cols-2" style="margin-bottom:14px;">' +
@@ -186,12 +186,12 @@ var FGRUi = (function () {
       ? 'Prazo decorrido: ' + U.fmtPct(health.elapsedPct) + ' vs. progresso real ' + U.fmtPct(model.pct)
       : '';
 
-    var LLABEL = { 'Backlog': 'Backlog', 'Em andamento': 'Em andamento', 'Bloqueado': 'Bloqueado', 'Em aprovacao externa': 'Aprovação externa', 'Concluido': 'Concluído' };
-    var LNAMES = ['Backlog', 'Em andamento', 'Bloqueado', 'Em aprovacao externa', 'Concluido'];
+    var LNAMES = FGRCalc.STAGE_ORDER;
+    var LLABEL = { 'Backlog Geral': 'Backlog Geral', 'TEC': 'TEC', 'PROJETISTA': 'Projetista', 'NN': 'NN', 'CONCLUSÃO': 'Conclusão' };
+    var LCOLOR = { 'Backlog Geral': 'var(--surface-2)', 'TEC': 'var(--accent)', 'PROJETISTA': 'var(--accent)', 'NN': 'var(--warning)', 'CONCLUSÃO': 'var(--good)' };
     document.getElementById('status-kpis').innerHTML = LNAMES.map(function (ln) {
-      var color = ln === 'Concluido' ? 'var(--good)' : ln === 'Bloqueado' ? 'var(--critical)' : ln === 'Em aprovacao externa' ? 'var(--warning)' : ln === 'Em andamento' ? 'var(--accent)' : 'var(--surface-2)';
       var count = model.byList[ln] || 0;
-      return '<div class="kpi"><div class="v" style="color:' + color + '">' + count + '</div><div class="l">' + LLABEL[ln] + '</div></div>';
+      return '<div class="kpi"><div class="v" style="color:' + LCOLOR[ln] + '">' + count + '</div><div class="l">' + LLABEL[ln] + '</div></div>';
     }).join('');
 
     document.getElementById('gargalos-list').innerHTML = model.bottlenecks.length
@@ -201,9 +201,10 @@ var FGRUi = (function () {
       : '<div class="empty">Nenhum gargalo no momento</div>';
 
     document.getElementById('upcoming-table').innerHTML = model.upcoming.length
-      ? '<table><thead><tr><th>Entrega</th><th>Data</th><th>Responsável</th></tr></thead><tbody>' +
+      ? '<table><thead><tr><th>Entrega</th><th>Etapa</th><th>Data</th><th>Checklist</th></tr></thead><tbody>' +
         model.upcoming.map(function (i) {
-          return '<tr><td>' + U.esc(i.name) + '</td><td class="num">' + new Date(i.due).toLocaleDateString('pt-BR') + '</td><td>' + (i.members.length ? U.esc(i.members.join(', ')) : '—') + '</td></tr>';
+          var ck = i.checklist && i.checklist.total ? (i.checklist.done + '/' + i.checklist.total) : '—';
+          return '<tr><td>' + U.esc(i.name) + '</td><td>' + U.esc(i.list) + '</td><td class="num">' + new Date(i.due).toLocaleDateString('pt-BR') + '</td><td class="num">' + ck + '</td></tr>';
         }).join('') + '</tbody></table>'
       : '<div class="empty">Nenhum cartão com due date definido ainda</div>';
 

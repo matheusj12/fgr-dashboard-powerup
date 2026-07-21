@@ -5,16 +5,18 @@
  * discretamente quando algo relevante acontece, sem esperar o usuario perguntar.
  */
 var FGREventWatcher = (function () {
-  var LABEL = { 'Backlog': 'Backlog', 'Em andamento': 'Em andamento', 'Bloqueado': 'Bloqueado', 'Em aprovacao externa': 'Aprovação externa', 'Concluido': 'Concluído' };
+  var LABEL = { 'Backlog Geral': 'Backlog Geral', 'TEC': 'TEC', 'PROJETISTA': 'Projetista', 'NN': 'NN', 'CONCLUSÃO': 'Conclusão' };
+  var STATUS_BLOQUEADO = 'Pause / Estratégia';
+  var STATUS_AGUARDANDO = 'Devendo';
 
   function transitionText(item, fromList, toList) {
-    if (toList === 'Concluido') return 'A disciplina ' + item.disciplina + ' concluiu a entrega "' + item.name + '".';
-    if (toList === 'Bloqueado') return '"' + item.name + '" (' + item.disciplina + ') foi bloqueada.';
-    if (toList === 'Em aprovacao externa') return '"' + item.name + '" (' + item.disciplina + ') entrou em aprovação externa.';
+    if (FGRCalc.isDone(toList)) return 'A disciplina ' + item.disciplina + ' concluiu a entrega "' + item.name + '".';
     return '"' + item.name + '" mudou de ' + (LABEL[fromList] || fromList) + ' para ' + (LABEL[toList] || toList) + '.';
   }
 
-  // items: [{id, name, disciplina, list, peso, due, members}]
+  function hasLabel(item, name) { return (item.labels || []).indexOf(name) > -1; }
+
+  // items: [{id, name, disciplina, list, labels, peso, due, members, checklist}]
   function diff(prevItems, nextItems) {
     if (!prevItems || !prevItems.length) return [];
     var prevMap = {};
@@ -28,8 +30,14 @@ var FGREventWatcher = (function () {
         return;
       }
       if (prev.list !== item.list) {
-        var severity = item.list === 'Bloqueado' ? 'critical' : item.list === 'Concluido' ? 'good' : 'info';
+        var severity = FGRCalc.isDone(item.list) ? 'good' : 'info';
         changes.push({ text: transitionText(item, prev.list, item.list), severity: severity });
+      }
+      if (!hasLabel(prev, STATUS_BLOQUEADO) && hasLabel(item, STATUS_BLOQUEADO)) {
+        changes.push({ text: '"' + item.name + '" (' + item.disciplina + ') foi marcada como Pause / Estratégia.', severity: 'critical' });
+      }
+      if (!hasLabel(prev, STATUS_AGUARDANDO) && hasLabel(item, STATUS_AGUARDANDO)) {
+        changes.push({ text: '"' + item.name + '" (' + item.disciplina + ') ficou aguardando terceiros (Devendo).', severity: 'info' });
       }
       if (prev.due !== item.due && item.due) {
         changes.push({ text: 'O prazo de "' + item.name + '" foi definido/alterado para ' + new Date(item.due).toLocaleDateString('pt-BR') + '.', severity: 'info' });
@@ -39,8 +47,10 @@ var FGREventWatcher = (function () {
       if (prevMembers !== nextMembers) {
         changes.push({ text: 'O responsável por "' + item.name + '" foi atualizado.', severity: 'info' });
       }
-      if (prev.peso !== item.peso) {
-        changes.push({ text: 'O peso de "' + item.name + '" mudou de ' + prev.peso + ' para ' + item.peso + ' pontos.', severity: 'info' });
+      var prevCk = prev.checklist || { done: 0, total: 0 };
+      var nextCk = item.checklist || { done: 0, total: 0 };
+      if (prevCk.done !== nextCk.done && nextCk.total) {
+        changes.push({ text: 'Checklist de "' + item.name + '" avançou para ' + nextCk.done + '/' + nextCk.total + '.', severity: 'info' });
       }
     });
     return changes;

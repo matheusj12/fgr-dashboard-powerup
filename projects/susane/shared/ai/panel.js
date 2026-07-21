@@ -140,8 +140,8 @@ var FGRAgentPanel = (function () {
 
   function renderSummary(ctx) {
     var b = ctx.gargalos.map(function (g) { return g.disciplina; }).join(', ') || 'nenhuma no momento';
-    var aprov = Object.keys(ctx.distribuicao_status).length ? (ctx.distribuicao_status['Em aprovacao externa'] || 0) : 0;
-    var bloq = ctx.distribuicao_status['Bloqueado'] || 0;
+    var aprov = ctx.aguardando_terceiros || 0;
+    var bloq = ctx.bloqueados || 0;
     var evo = ctx.evolucao_recente;
     var delta = evo.length >= 2 ? FGRUtils.fmtNum(evo[evo.length - 1].pct - evo[0].pct) + ' p.p. nos últimos ' + evo.length + ' registros' : 'histórico ainda em construção';
 
