@@ -76,6 +76,11 @@ var FGRUi = (function () {
       '</div>' +
       '</div>' +
 
+      '<div class="card highlight-card">' +
+      '<h2>Próximas entregas <span class="hint">por due date</span></h2>' +
+      '<div id="upcoming-table"></div>' +
+      '</div>' +
+
       '<div class="grid cols-2" style="margin-bottom:14px;">' +
       chartCard('gauge', 'Progresso Geral', null) +
       '<div class="card">' +
@@ -125,8 +130,6 @@ var FGRUi = (function () {
 
       chartCard('critical-bar', 'Atividades Críticas', null, 2) +
 
-      '<div class="grid cols-2" style="margin-bottom:14px;">' +
-      '<div class="card"><h2>Próximas entregas <span class="hint">por due date</span></h2><div id="upcoming-table"></div></div>' +
       '<div class="card"><h2>Configuração do empreendimento <span class="hint">para calcular a saúde do projeto</span></h2>' +
       '<div class="settings-form">' +
       '<label>Cliente<input type="text" id="cfgCliente" value="' + FGRUtils.esc((cfg && cfg.cliente) || '') + '" style="width:150px"></label>' +
@@ -136,7 +139,6 @@ var FGRUi = (function () {
       '<button class="btn" id="cfgSave">Salvar</button>' +
       '</div>' +
       '<div style="margin-top:12px;color:var(--text-soft)" id="kpi-schedule-gap"></div>' +
-      '</div>' +
       '</div>' +
 
       '<footer><span>Dados lidos ao vivo do board via Trello REST API.</span><span id="kpi-updated-at">—</span></footer>';
