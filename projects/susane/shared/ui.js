@@ -100,7 +100,7 @@ var FGRUi = (function () {
       '</div>' +
 
       '<div class="grid cols-2" style="margin-bottom:14px;">' +
-      chartCard('weight-bar', 'Peso das Disciplinas', null) +
+      chartCard('weight-bar', 'Peso das Disciplinas', 'maior → menor') +
       chartCard('heatmap', 'Mapa de Gargalos', 'bloqueados + aguardando terceiros') +
       '</div>' +
 
@@ -224,7 +224,7 @@ var FGRUi = (function () {
 
     var weightRows = model.discRows.slice().sort(function (a, b) { return b.peso - a.peso; });
     FGRChartManager.render('weight-bar', document.getElementById('chart-weight-bar'), FGRChartBar, {
-      horizontal: false, unit: ' pts',
+      horizontal: true, unit: ' pts',
       categories: weightRows.map(function (r) { return r.name; }),
       series: [{ name: 'Peso', data: weightRows.map(function (r) { return Math.round(r.peso * 10) / 10; }) }]
     });
